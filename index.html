@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Chemistry Lab</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        fredoka: ['Fredoka', 'sans-serif'],
+                        nunito: ['Nunito', 'sans-serif'],
+                    },
+                    colors: {
+                        proton: '#FF4D4D',
+                        neutron: '#4A90E2',
+                        electron: '#FFD166',
+                        flaskBg: 'rgba(255, 255, 255, 0.05)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'bubble': 'bubble 2s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-8px)' },
+                        },
+                        bubble: {
+                            '0%': { transform: 'translateY(0px) scale(0.8)', opacity: '0' },
+                            '50%': { opacity: '0.8' },
+                            '100%': { transform: 'translateY(-60px) scale(1.2)', opacity: '0' },
+                        },
+                        glow: {
+                            '0%': { filter: 'drop-shadow(0 0 5px rgba(59, 130, 246, 0.5))' },
+                            '100%': { filter: 'drop-shadow(0 0 20px rgba(147, 51, 234, 0.8))' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f172a 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.8);
+        }
+
+        /* Orbit rotation */
+        .orbit-spin {
+            animation: spin 12s linear infinite;
+            transform-origin: center;
+        }
+        .orbit-spin-reverse {
+            animation: spin-reverse 18s linear infinite;
+            transform-origin: center;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes spin-reverse {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+
+        /* Drag and Drop Visual Effect */
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        .drag-over {
+            border-color: #6366f1 !important;
+            background: rgba(99, 102, 241, 0.2) !important;
+        }
+
+        /* Performance Optimizations for Smooth SVG Animations */
+        .orbit-spin, .orbit-spin-reverse, .animate-float, .animate-bubble {
+            will-change: transform;
+            transform: translateZ(0);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen overflow-x-hidden">
+
+    <!-- TOP NAVIGATION / HEADER -->
+    <header class="glass-panel sticky top-0 z-50 border-b border-slate-700/50 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            
+            <!-- Logo Section -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('main-menu')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-xl shadow-lg shadow-indigo-500/30 animate-pulse-slow flex-shrink-0">
+                    <i class="fa-solid font-fredoka fa-flask"></i>
+                </div>
+                <div>
+                    <h1 class="font-fredoka text-lg md:text-xl font-bold tracking-wide bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
+                        VIRTUAL CHEMISTRY LAB - Beta
+                    </h1>
+                    <p class="text-[11px] text-purple-300/80 font-semibold tracking-wide">
+                        Conceived as Science Exhibition Exhibit & Synthesized by 9th Graders
+                    </p>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons & Achievements -->
+            <div class="flex flex-wrap items-center gap-2">
+                <button id="nav-menu-btn" onclick="switchTab('main-menu')" class="nav-btn px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all flex items-center space-x-2 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Main Menu</span>
+                </button>
+
+                <button id="nav-atom-btn" onclick="switchTab('atom-craft')" class="nav-btn px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all flex items-center space-x-2 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">
+                    <i class="fa-solid fa-atom text-cyan-400"></i>
+                    <span>Atom Craft</span>
+                </button>
+
+                <button id="nav-molecule-btn" onclick="switchTab('molecule-craft')" class="nav-btn px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all flex items-center space-x-2 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">
+                    <i class="fa-solid fa-vial text-pink-400"></i>
+                    <span>Molecule Craft</span>
+                </button>
+
+                <!-- Exhibition Score/Badges -->
+                <button onclick="openDiscoveredModal()" class="flex items-center space-x-2 bg-slate-900/80 border border-amber-500/40 hover:border-amber-400 px-3 py-1.5 rounded-xl text-amber-400 text-xs font-bold shadow-inner cursor-pointer transition-all">
+                    <i class="fa-solid fa-award text-amber-400 text-base"></i>
+                    <div class="text-left">
+                        <span class="block text-[10px] text-slate-400 uppercase tracking-wider">Discovered</span>
+                        <span id="badge-counter" class="text-xs">0 Badges</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTAINERS -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 relative">
+
+        <!-- ================= MAIN MENU TAB ================= -->
+        <section id="tab-main-menu" class="tab-content transition-all duration-300 space-y-8 py-6">
+            <!-- Hero Banner -->
+            <div class="glass-panel rounded-3xl p-8 md:p-12 text-center relative overflow-hidden border border-indigo-500/20 shadow-2xl">
+                <div class="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-pink-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="relative z-10 max-w-3xl mx-auto space-y-4">
+                    <span class="px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-pink-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                        Welcome Science Explorers!
+                    </span>
+                    <h2 class="font-fredoka text-4xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">
+                        Explore the Microscopic Universe
+                    </h2>
+                    <p class="text-slate-300 text-base md:text-lg leading-relaxed font-normal">
+                        Step into the <strong>Virtual Chemistry Lab</strong>! Master the Bohr atomic model, build stable atoms, and trigger chemical reactions inside the distillation flask to synthesize vital molecules.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Game Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <!-- Game 1 Card -->
+                <div onclick="switchTab('atom-craft')" class="glass-panel group rounded-3xl p-8 cursor-pointer border border-cyan-500/20 hover:border-cyan-400/50 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-cyan-500/20 flex flex-col justify-between">
+                    <div>
+                        <div class="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 text-3xl mb-6 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-atom"></i>
+                        </div>
+                        <h3 class="font-fredoka text-3xl font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">
+                            Atom Craft
+                        </h3>
+                        <p class="text-slate-300 text-sm leading-relaxed mb-6">
+                            Construct atoms from subatomic particles! Balance protons, neutrons, and electrons in Bohr's energy shells (K, L, M) to test nuclear stability and electronic neutrality.
+                        </p>
+                        <ul class="text-xs text-slate-400 space-y-2 mb-6">
+                            <li class="flex items-center"><i class="fa-solid fa-check text-cyan-400 mr-2"></i> Interactive Bohr Model Canvas</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check text-cyan-400 mr-2"></i> K, L, M Shell Electron Limits (2, 8, 18)</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check text-cyan-400 mr-2"></i> Element Preset Challenges & Isotope Rules</li>
+                        </ul>
+                    </div>
+                    <button class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold text-sm tracking-wide shadow-lg group-hover:from-cyan-500 group-hover:to-blue-500 transition-all flex items-center justify-center space-x-2">
+                        <span>Launch Atom Craft</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <!-- Game 2 Card -->
+                <div onclick="switchTab('molecule-craft')" class="glass-panel group rounded-3xl p-8 cursor-pointer border border-pink-500/20 hover:border-pink-400/50 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-pink-500/20 flex flex-col justify-between">
+                    <div>
+                        <div class="w-16 h-16 rounded-2xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 text-3xl mb-6 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-flask-vial"></i>
+                        </div>
+                        <h3 class="font-fredoka text-3xl font-bold text-white mb-3 group-hover:text-pink-300 transition-colors">
+                            Molecule Craft
+                        </h3>
+                        <p class="text-slate-300 text-sm leading-relaxed mb-6">
+                            Synthesize compounds inside the virtual distillation flask! Drag or add elements in precise stoichiometric ratios to watch dynamic reactions unfold.
+                        </p>
+                        <ul class="text-xs text-slate-400 space-y-2 mb-6">
+                            <li class="flex items-center"><i class="fa-solid fa-check text-pink-400 mr-2"></i> Interactive Distillation Flask Chamber</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check text-pink-400 mr-2"></i> Synthesize H₂O, NaCl, CO₂, NH₃, & more</li>
+                            <li class="flex items-center"><i class="fa-solid fa-check text-pink-400 mr-2"></i> Reaction Vapor & Fizz Animations</li>
+                        </ul>
+                    </div>
+                    <button class="w-full py-3.5 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold text-sm tracking-wide shadow-lg group-hover:from-pink-500 group-hover:to-purple-500 transition-all flex items-center justify-center space-x-2">
+                        <span>Launch Molecule Craft</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= GAME 1: ATOM CRAFT ================= -->
+        <section id="tab-atom-craft" class="tab-content hidden transition-all duration-300 space-y-6">
+            
+            <!-- Header bar for Atom Craft -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 border border-cyan-500/20">
+                <div class="flex items-center space-x-3">
+                    <div class="p-3 bg-cyan-500/20 rounded-xl text-cyan-400 text-xl">
+                        <i class="fa-solid fa-atom"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-fredoka text-2xl font-bold text-white">Atom Craft Builder</h2>
+                        <p class="text-xs text-slate-400">Build Bohr model atoms & evaluate nuclear stability!</p>
+                    </div>
+                </div>
+
+                <!-- Element Challenge Selector -->
+                <div class="flex items-center space-x-2 w-full md:w-auto">
+                    <label class="text-xs font-bold text-slate-300 whitespace-nowrap">Target Challenge:</label>
+                    <select id="atom-preset-select" onchange="loadAtomPreset()" class="w-full md:w-48 bg-slate-800 border border-slate-700 text-cyan-300 text-xs rounded-xl px-3 py-2 font-bold focus:outline-none focus:border-cyan-500">
+                        <option value="custom">Custom Sandbox</option>
+                        <option value="H">1. Hydrogen (H-1)</option>
+                        <option value="He">2. Helium (He-4)</option>
+                        <option value="C">6. Carbon (C-12)</option>
+                        <option value="N">7. Nitrogen (N-14)</option>
+                        <option value="O">8. Oxygen (O-16)</option>
+                        <option value="Na">11. Sodium (Na-23)</option>
+                        <option value="Cl">17. Chlorine (Cl-35)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- AtomCraft Workspace Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Left Column: Controls (Protons, Neutrons, Electrons) -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="glass-panel rounded-2xl p-5 border border-slate-700/60 space-y-5">
+                        <h3 class="font-fredoka text-lg font-bold text-indigo-300 border-b border-slate-700/80 pb-2 flex items-center justify-between">
+                            <span>Particle Controls</span>
+                            <button onclick="resetAtomControls()" class="text-xs text-slate-400 hover:text-red-400 transition-colors">
+                                <i class="fa-solid fa-rotate-left mr-1"></i>Reset
+                            </button>
+                        </h3>
+
+                        <!-- Protons Control -->
+                        <div class="bg-slate-900/60 p-4 rounded-xl border border-rose-500/20">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-rose-400 text-sm flex items-center">
+                                    <span class="w-3 h-3 rounded-full bg-rose-500 inline-block mr-2 shadow-sm shadow-rose-500"></span>
+                                    Protons (p⁺)
+                                </span>
+                                <span id="count-protons" class="font-mono font-bold text-xl text-rose-300">1</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="adjustParticle('proton', -1)" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-rose-900/40 border border-slate-700 hover:border-rose-500/50 text-white font-bold text-lg active:scale-95 transition-all">-</button>
+                                <button onclick="adjustParticle('proton', 1)" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-rose-900/40 border border-slate-700 hover:border-rose-500/50 text-white font-bold text-lg active:scale-95 transition-all">+</button>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-2">Determines Element Identity & Atomic Number (Z).</p>
+                        </div>
+
+                        <!-- Neutrons Control -->
+                        <div class="bg-slate-900/60 p-4 rounded-xl border border-blue-500/20">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-blue-400 text-sm flex items-center">
+                                    <span class="w-3 h-3 rounded-full bg-blue-500 inline-block mr-2 shadow-sm shadow-blue-500"></span>
+                                    Neutrons (n⁰)
+                                </span>
+                                <span id="count-neutrons" class="font-mono font-bold text-xl text-blue-300">0</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="adjustParticle('neutron', -1)" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-blue-900/40 border border-slate-700 hover:border-blue-500/50 text-white font-bold text-lg active:scale-95 transition-all">-</button>
+                                <button onclick="adjustParticle('neutron', 1)" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-blue-900/40 border border-slate-700 hover:border-blue-500/50 text-white font-bold text-lg active:scale-95 transition-all">+</button>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-2">Provides Nuclear Glue. Affects Mass Number (A).</p>
+                        </div>
+
+                        <!-- Electrons Control -->
+                        <div class="bg-slate-900/60 p-4 rounded-xl border border-amber-500/20">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-amber-400 text-sm flex items-center">
+                                    <span class="w-3 h-3 rounded-full bg-amber-400 inline-block mr-2 shadow-sm shadow-amber-400"></span>
+                                    Electrons (e⁻)
+                                </span>
+                                <span id="count-electrons" class="font-mono font-bold text-xl text-amber-300">1</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="adjustParticle('electron', -1)" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-amber-900/40 border border-slate-700 hover:border-amber-500/50 text-white font-bold text-lg active:scale-95 transition-all">-</button>
+                                <button onclick="adjustParticle('electron', 1)" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-amber-900/40 border border-slate-700 hover:border-amber-500/50 text-white font-bold text-lg active:scale-95 transition-all">+</button>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-2">Fills K (2), L (8), M (18) orbits around nucleus.</p>
+                        </div>
+
+                        <!-- Action Button -->
+                        <button onclick="testAtomStability()" class="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-base tracking-wide shadow-xl shadow-emerald-500/20 transition-all transform active:scale-98 flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-shield-halved text-lg"></i>
+                            <span>Test Stability & Identify</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Middle Column: Bohr Visual Canvas -->
+                <div class="lg:col-span-5 flex flex-col justify-between">
+                    <div class="glass-panel rounded-2xl p-4 border border-slate-700/60 h-full flex flex-col items-center justify-center relative min-h-[380px]">
+                        
+                        <!-- Shell Stats Indicator -->
+                        <div class="absolute top-4 left-4 z-10 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs space-x-2">
+                            <span class="text-slate-400 font-bold">Shell Distribution:</span>
+                            <span id="shell-dist-display" class="font-mono text-cyan-300 font-bold">K: 1</span>
+                        </div>
+
+                        <!-- SVG Bohr Display -->
+                        <div class="w-full h-full flex items-center justify-center p-2">
+                            <svg id="bohr-svg" class="w-full h-[340px] max-w-[360px]" viewBox="0 0 400 400">
+                                <!-- Dynamic Render via JS -->
+                            </svg>
+                        </div>
+
+                        <div class="text-center text-xs text-slate-400 italic mt-2">
+                            Bohr Model: Orbiting electrons fill K, L, M shells dynamically.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Live Atom Stats HUD -->
+                <div class="lg:col-span-3 space-y-4">
+                    <div class="glass-panel rounded-2xl p-5 border border-slate-700/60 space-y-4">
+                        <h3 class="font-fredoka text-lg font-bold text-cyan-300 border-b border-slate-700/80 pb-2">
+                            Atom Properties HUD
+                        </h3>
+
+                        <!-- Element Box (Periodic Table Style) -->
+                        <div class="bg-gradient-to-br from-indigo-950/80 to-slate-900/80 border-2 border-cyan-500/40 rounded-2xl p-4 text-center shadow-lg relative overflow-hidden">
+                            <div class="text-xs text-cyan-400 font-bold flex justify-between">
+                                <span>Z = <span id="hud-atomic-number">1</span></span>
+                                <span>A = <span id="hud-mass-number">1</span></span>
+                            </div>
+                            <div id="hud-symbol" class="font-fredoka text-5xl font-extrabold text-white my-2">
+                                H
+                            </div>
+                            <div id="hud-name" class="font-bold text-sm text-cyan-200 uppercase tracking-wider">
+                                Hydrogen
+                            </div>
+                            <div class="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-xs">
+                                <span class="text-slate-400">Net Charge:</span>
+                                <span id="hud-net-charge" class="font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">0 (Neutral)</span>
+                            </div>
+                        </div>
+
+                        <!-- Shell Breakdown List -->
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800">
+                                <span class="text-slate-300">K-Shell (Capacity 2):</span>
+                                <span id="shell-k-val" class="font-mono font-bold text-amber-300">1 / 2</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800">
+                                <span class="text-slate-300">L-Shell (Capacity 8):</span>
+                                <span id="shell-l-val" class="font-mono font-bold text-amber-300">0 / 8</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800">
+                                <span class="text-slate-300">M-Shell (Capacity 18):</span>
+                                <span id="shell-m-val" class="font-mono font-bold text-amber-300">0 / 18</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= GAME 2: MOLECULE CRAFT ================= -->
+        <section id="tab-molecule-craft" class="tab-content hidden transition-all duration-300 space-y-6">
+            
+            <!-- Header bar for Molecule Craft -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 border border-pink-500/20">
+                <div class="flex items-center space-x-3">
+                    <div class="p-3 bg-pink-500/20 rounded-xl text-pink-400 text-xl">
+                        <i class="fa-solid fa-vial"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-fredoka text-2xl font-bold text-white">Molecule Craft Synthesizer</h2>
+                        <p class="text-xs text-slate-400">Combine elements in exact proportions to synthesize molecules!</p>
+                    </div>
+                </div>
+
+                <div class="text-xs text-pink-300 font-semibold bg-pink-500/10 border border-pink-500/30 px-3 py-1.5 rounded-xl">
+                    <i class="fa-solid fa-lightbulb mr-1"></i> Drag or click elements into the flask chamber!
+                </div>
+            </div>
+
+            <!-- Main Workstation Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Left Column: Element Supply Palette -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="glass-panel rounded-2xl p-5 border border-slate-700/60 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-700/80 pb-2">
+                            <h3 class="font-fredoka text-lg font-bold text-pink-300">
+                                Reactants Palette
+                            </h3>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="clearPaletteSelection()" class="text-[11px] text-slate-400 hover:text-red-400 font-bold transition-colors">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i>Reset
+                                </button>
+                                <button onclick="openElementManagerModal()" class="px-2.5 py-1 rounded-lg bg-pink-600/30 hover:bg-pink-600/50 text-pink-200 border border-pink-500/40 text-xs font-bold transition-all flex items-center space-x-1">
+                                    <i class="fa-solid fa-sliders text-pink-300"></i>
+                                    <span>Select Elements</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <p class="text-xs text-slate-400">
+                            Click or drag these atoms into the distillation reaction flask:
+                        </p>
+
+                        <!-- Elements Grid (Dynamic Active Palette) -->
+                        <div id="palette-elements-grid" class="grid grid-cols-2 gap-3">
+                            <!-- JS Dynamic Selected Elements -->
+                        </div>
+
+                        <!-- Quick Recipe Hints -->
+                        <div class="bg-slate-900/50 rounded-xl p-3 border border-slate-800 text-xs space-y-1">
+                            <span class="font-bold text-slate-300">Target Recipes to Try:</span>
+                            <div class="flex flex-wrap gap-1 mt-1 text-[11px]">
+                                <span class="bg-slate-800 px-2 py-0.5 rounded text-cyan-300 border border-slate-700">H₂O</span>
+                                <span class="bg-slate-800 px-2 py-0.5 rounded text-purple-300 border border-slate-700">NaCl</span>
+                                <span class="bg-slate-800 px-2 py-0.5 rounded text-emerald-300 border border-slate-700">CO₂</span>
+                                <span class="bg-slate-800 px-2 py-0.5 rounded text-amber-300 border border-slate-700">NH₃</span>
+                                <span class="bg-slate-800 px-2 py-0.5 rounded text-rose-300 border border-slate-700">H₂O₂</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Middle Column: Distillation Reaction Chamber -->
+                <div class="lg:col-span-5 space-y-4">
+                    <div id="flask-drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="glass-panel rounded-3xl p-6 border border-pink-500/20 relative min-h-[460px] flex flex-col justify-between overflow-hidden">
+                        
+                        <!-- Top Vapor Outlets Visual -->
+                        <div class="flex justify-between items-center text-xs text-slate-400 border-b border-slate-800 pb-3">
+                            <span class="flex items-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                                <span class="font-bold text-slate-200">Distillation Column Active</span>
+                            </span>
+                            <button onclick="clearFlask()" class="text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center space-x-1">
+                                <i class="fa-solid fa-trash-can"></i>
+                                <span>Clear Flask</span>
+                            </button>
+                        </div>
+
+                        <!-- Distillation Reaction Graphic (Flask SVG + Liquids) -->
+                        <div class="relative my-4 flex justify-center items-center h-64">
+                            
+                            <!-- Reaction Vapor Gas Clouds (Animated JS dynamically) -->
+                            <div id="steam-container" class="absolute top-0 w-32 h-20 pointer-events-none flex justify-center"></div>
+
+                            <!-- Distillation Flask Graphic -->
+                            <div class="relative w-48 h-56 flex items-end justify-center">
+                                <svg class="w-full h-full text-pink-500 filter drop-shadow-lg" viewBox="0 0 200 240">
+                                    <!-- Distillation Neck & Outlet Tube -->
+                                    <path d="M 85,20 L 115,20 L 115,70 L 170,40 L 175,48 L 115,82 L 115,90 L 165,140 L 35,140 L 85,90 Z" fill="none" stroke="rgba(244, 114, 182, 0.4)" stroke-width="4" stroke-linejoin="round"/>
+                                    
+                                    <!-- Flask Bulb Outer -->
+                                    <path id="flask-glass" d="M 85,70 C 85,70 40,110 30,150 C 18,200 50,225 100,225 C 150,225 182,200 170,150 C 160,110 115,70 115,70 Z" fill="rgba(255, 255, 255, 0.04)" stroke="rgba(255, 255, 255, 0.4)" stroke-width="5"/>
+                                    
+                                    <!-- Dynamic Reaction Liquid Fill Level -->
+                                    <path id="flask-liquid" d="M 35,160 C 50,155 150,155 165,160 C 172,185 150,220 100,220 C 50,220 28,185 35,160 Z" fill="rgba(236, 72, 153, 0.2)" class="transition-all duration-500"/>
+                                </svg>
+
+                                <!-- Bubbles Container -->
+                                <div id="bubbles-container" class="absolute bottom-6 w-24 h-20 pointer-events-none"></div>
+                            </div>
+                        </div>
+
+                        <!-- Current Contents Chamber Inventory -->
+                        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 space-y-3">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-bold text-slate-300">Reaction Flask Contents:</span>
+                                <span id="flask-count-badge" class="font-mono text-pink-400 font-bold">0 Atom(s) Added</span>
+                            </div>
+
+                            <!-- Added Atom Pills -->
+                            <div id="flask-contents-list" class="flex flex-wrap gap-2 min-h-[40px] items-center p-2 bg-slate-950/60 rounded-xl border border-slate-800/80">
+                                <span class="text-xs text-slate-500 italic">Flask is empty. Click or drag elements from the left palette...</span>
+                            </div>
+
+                            <!-- React Action Button -->
+                            <button onclick="triggerReaction()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white font-extrabold text-base tracking-wide shadow-lg shadow-pink-600/30 transition-all transform active:scale-98 flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-fire text-amber-300"></i>
+                                <span>Trigger Reaction</span>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Right Column: Live Molecule HUD Panel -->
+                <div class="lg:col-span-3 space-y-4">
+                    <div class="glass-panel rounded-2xl p-5 border border-slate-700/60 space-y-4">
+                        <h3 class="font-fredoka text-lg font-bold text-pink-300 border-b border-slate-700/80 pb-2">
+                            Molecule HUD
+                        </h3>
+
+                        <!-- Compound Preview Box (Periodic/Compound Table Style) -->
+                        <div class="bg-gradient-to-br from-pink-950/80 to-slate-900/80 border-2 border-pink-500/40 rounded-2xl p-4 text-center shadow-lg relative overflow-hidden">
+                            <div class="text-[11px] text-pink-400 font-bold flex justify-between">
+                                <span>Atoms: <span id="hud-total-atoms">0</span></span>
+                                <span>Status: <span id="hud-status-text" class="text-amber-300">Mixing</span></span>
+                            </div>
+                            <div id="hud-formula" class="font-fredoka text-4xl font-extrabold text-white my-2 tracking-wide">
+                                ---
+                            </div>
+                            <div id="hud-molecule-name" class="font-bold text-xs text-pink-200 uppercase tracking-wider">
+                                Dynamic Mixture
+                            </div>
+                            <div class="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-xs">
+                                <span class="text-slate-400">Target Match:</span>
+                                <span id="hud-match-status" class="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">None</span>
+                            </div>
+                        </div>
+
+                        <!-- Stoichiometry Element Breakdown -->
+                        <div class="space-y-2 text-xs">
+                            <div class="text-slate-400 font-bold text-[11px] uppercase tracking-wider mb-1">Reactant Stoichiometry:</div>
+                            <div id="hud-stoichiometry-list" class="space-y-1.5 max-h-48 overflow-y-auto">
+                                <div class="text-slate-500 italic text-center p-2 bg-slate-900/50 rounded-lg">No reactants in flask</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- DISCOVERED BADGES SHOWCASE MODAL -->
+    <div id="discovered-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden transition-opacity duration-300">
+        <div class="glass-panel max-w-3xl w-full rounded-3xl p-6 md:p-8 border border-amber-500/30 shadow-2xl space-y-6 relative max-h-[90vh] flex flex-col">
+            
+            <div class="flex items-center justify-between border-b border-slate-700/80 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-2xl">
+                        <i class="fa-solid fa-award"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-fredoka text-2xl font-bold text-white">Discovered Badge Showcase</h3>
+                        <p class="text-xs text-slate-400">Atoms & Molecules unlocked during your lab experiments</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span id="discovered-summary-text" class="text-xs font-bold text-amber-300 bg-amber-950/60 border border-amber-500/40 px-3 py-1.5 rounded-xl">
+                        0 / 26 Total Badges Earned
+                    </span>
+                    <button onclick="closeDiscoveredModal()" class="text-slate-400 hover:text-white text-xl p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scrollable Badges Grid Section -->
+            <div class="overflow-y-auto space-y-6 flex-grow pr-2">
+                <!-- Atoms Badges Section -->
+                <div>
+                    <h4 class="font-fredoka text-sm font-bold text-cyan-300 uppercase tracking-wider mb-3 flex items-center">
+                        <i class="fa-solid fa-atom mr-2 text-cyan-400"></i>
+                        Discovered Atoms (Atom Craft)
+                    </h4>
+                    <div id="badge-atoms-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                        <!-- JS Dynamic Render -->
+                    </div>
+                </div>
+
+                <!-- Molecules Badges Section -->
+                <div>
+                    <h4 class="font-fredoka text-sm font-bold text-pink-300 uppercase tracking-wider mb-3 flex items-center">
+                        <i class="fa-solid fa-flask-vial mr-2 text-pink-400"></i>
+                        Discovered Compounds (Molecule Craft)
+                    </h4>
+                    <div id="badge-molecules-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <!-- JS Dynamic Render -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-800 flex justify-end">
+                <button onclick="closeDiscoveredModal()" class="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all">
+                    Close Showcase
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ELEMENT MANAGER MODAL (PERIODIC TABLE SELECTION) -->
+    <div id="element-manager-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden transition-opacity duration-300">
+        <div class="glass-panel max-w-2xl w-full rounded-3xl p-6 md:p-8 border border-pink-500/30 shadow-2xl space-y-5 relative max-h-[90vh] flex flex-col">
+            
+            <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 text-xl">
+                        <i class="fa-solid fa-flask"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-fredoka text-xl font-bold text-white">Select Palette Elements</h3>
+                        <p class="text-xs text-slate-400">Pick up to 10 elements from the Periodic Table for experimentation</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span id="element-selection-count" class="text-xs font-mono font-bold text-pink-300 bg-pink-950/60 border border-pink-500/40 px-2.5 py-1 rounded-lg">
+                        6 / 10 Selected
+                    </span>
+                    <button onclick="closeElementManagerModal()" class="text-slate-400 hover:text-white text-xl p-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Periodic Table Elements Grid with Checkboxes -->
+            <div id="periodic-selection-grid" class="overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-1 flex-grow pr-2">
+                <!-- JS Dynamic Rendered Selection Cards -->
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="pt-3 border-t border-slate-800 flex justify-between items-center text-xs">
+                <button onclick="clearPaletteSelection()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-red-300 border border-slate-700 hover:border-red-500/50 font-bold transition-all">
+                    <i class="fa-solid fa-trash-can mr-1.5"></i>Empty Palette
+                </button>
+                <button onclick="closeElementManagerModal()" class="px-5 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold transition-all">
+                    Done
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- UNIFIED RESULT MODAL (FUN FACTS & RETRY HINTS) -->
+    <div id="result-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden transition-opacity duration-300">
+        <div class="glass-panel max-w-lg w-full rounded-3xl p-6 md:p-8 border border-indigo-500/30 shadow-2xl space-y-6 relative animate-float">
+            
+            <!-- Modal Header Icon -->
+            <div class="text-center space-y-2">
+                <div id="modal-icon-container" class="w-20 h-20 mx-auto rounded-3xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-4xl shadow-lg">
+                    <i id="modal-icon" class="fa-solid fa-circle-check"></i>
+                </div>
+                <h3 id="modal-title" class="font-fredoka text-3xl font-extrabold text-white">
+                    Stable Atom Created!
+                </h3>
+                <p id="modal-subtitle" class="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    Element Details & Fun Facts
+                </p>
+            </div>
+
+            <!-- Modal Content Body -->
+            <div id="modal-body-card" class="bg-slate-900/90 rounded-2xl p-5 border border-slate-800 space-y-3 text-sm leading-relaxed">
+                <!-- Injected JS Content -->
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex items-center space-x-3">
+                <button onclick="closeModal()" class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg transition-all">
+                    Continue Learning
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CORE GAME LOGIC JS -->
+    <script>
+        /* ================= AUDIO SYNTHESIZER (OPTIMIZED SINGLETON) ================= */
+        let globalAudioCtx = null;
+
+        function getAudioContext() {
+            if (!globalAudioCtx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    globalAudioCtx = new AudioCtx();
+                }
+            }
+            if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+                globalAudioCtx.resume();
+            }
+            return globalAudioCtx;
+        }
+
+        function playSound(type) {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.04);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+                    osc.start(now);
+                    osc.stop(now + 0.04);
+                } else if (type === 'success') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.08);
+                    osc.frequency.setValueAtTime(783.99, now + 0.16);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else if (type === 'fail') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(280, now);
+                    osc.frequency.linearRampToValueAtTime(140, now + 0.2);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {
+                // Fallback graceful fail
+            }
+        }
+
+        /* ================= NAVIGATION & TAB SWITCHING ================= */
+        function switchTab(tabId) {
+            playSound('click');
+            state.activeTab = tabId;
+
+            // Hide all tab contents
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.add('hidden'));
+
+            // Show target tab
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            if (targetTab) {
+                targetTab.classList.remove('hidden');
+            }
+
+            // Update Navigation Button Active Styles
+            const navButtons = {
+                'main-menu': document.getElementById('nav-menu-btn'),
+                'atom-craft': document.getElementById('nav-atom-btn'),
+                'molecule-craft': document.getElementById('nav-molecule-btn')
+            };
+
+            Object.keys(navButtons).forEach(key => {
+                const btn = navButtons[key];
+                if (!btn) return;
+                if (key === tabId) {
+                    btn.className = "nav-btn px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all flex items-center space-x-2 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500";
+                } else {
+                    btn.className = "nav-btn px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all flex items-center space-x-2 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700";
+                }
+            });
+
+            // Re-render canvases/palettes if needed on tab switch
+            if (tabId === 'atom-craft') {
+                updateAtomUI();
+            } else if (tabId === 'molecule-craft') {
+                renderActivePalette();
+                updateFlaskUI();
+            }
+        }
+
+        /* ================= STATE MANAGEMENT ================= */
+        const state = {
+            activeTab: 'main-menu',
+            discoveredBadges: new Set(),
+            
+            // AtomCraft State
+            atom: {
+                protons: 1,
+                neutrons: 0,
+                electrons: 1
+            },
+
+            // MoleculeCraft State
+            flaskContents: [],
+            activePaletteElements: ['H', 'O', 'C', 'Na', 'Cl', 'N']
+        };
+
+        /* ================= ELEMENT DATABASE ================= */
+        const PERIODIC_TABLE = {
+            1: { symbol: "H", name: "Hydrogen", standardNeutrons: 0, facts: "Hydrogen is the lightest and most abundant element in the universe! Sun stars are made mostly of Hydrogen." },
+            2: { symbol: "He", name: "Helium", standardNeutrons: 2, facts: "Helium is an inert noble gas. It does not burn and is lighter than air, making balloons float!" },
+            3: { symbol: "Li", name: "Lithium", standardNeutrons: 4, facts: "Lithium is the lightest metal. It is widely used in modern rechargeable phone and electric vehicle batteries." },
+            4: { symbol: "Be", name: "Beryllium", standardNeutrons: 5, facts: "Beryllium is lightweight and extremely stiff. It forms emerald gems when combined with chromium!" },
+            5: { symbol: "B", name: "Boron", standardNeutrons: 6, facts: "Boron is a metalloid used in heat-resistant Pyrex lab glassware and plant nutrient supplements." },
+            6: { symbol: "C", name: "Carbon", standardNeutrons: 6, facts: "Carbon is the foundation of organic life! Diamonds, graphite pencil leads, and charcoal are all pure Carbon." },
+            7: { symbol: "N", name: "Nitrogen", standardNeutrons: 7, facts: "Nitrogen gas makes up about 78% of Earth's atmosphere! It is essential for building proteins in plants and humans." },
+            8: { symbol: "O", name: "Oxygen", standardNeutrons: 8, facts: "Oxygen makes up 21% of Earth's air. It is vital for aerobic respiration and combustion reaction fire!" },
+            9: { symbol: "F", name: "Fluorine", standardNeutrons: 10, facts: "Fluorine is the most chemically reactive halogen element. Fluoride compounds protect teeth against decay." },
+            10: { symbol: "Ne", name: "Neon", standardNeutrons: 10, facts: "Neon glows vibrant reddish-orange when electric currents pass through it in neon signs." },
+            11: { symbol: "Na", name: "Sodium", standardNeutrons: 12, facts: "Sodium is a soft alkali metal that reacts violently with water. Combined with chlorine, it forms edible table salt!" },
+            12: { symbol: "Mg", name: "Magnesium", standardNeutrons: 12, facts: "Magnesium burns with a brilliant white light. It sits at the center of chlorophyll molecules in green leaves." },
+            13: { symbol: "Al", name: "Aluminium", standardNeutrons: 14, facts: "Aluminium is low density, corrosion resistant, and widely used in aircraft framing and soda cans." },
+            14: { symbol: "Si", name: "Silicon", standardNeutrons: 14, facts: "Silicon is the foundation of computer microchips and sand on beaches!" },
+            15: { symbol: "P", name: "Phosphorus", standardNeutrons: 16, facts: "Phosphorus glows in dark matches and forms the backbone DNA helix structure in cells." },
+            16: { symbol: "S", name: "Sulfur", standardNeutrons: 16, facts: "Sulfur is a bright yellow solid found near volcanoes and hot springs. Used to manufacture sulfuric acid." },
+            17: { symbol: "Cl", name: "Chlorine", standardNeutrons: 18, facts: "Chlorine is a greenish-yellow gas used to disinfect swimming pools and drinking water supplies." },
+            18: { symbol: "Ar", name: "Argon", standardNeutrons: 22, facts: "Argon is a non-reactive noble gas used inside traditional filament incandescent lightbulbs." },
+            26: { symbol: "Fe", name: "Iron", standardNeutrons: 30, facts: "Iron is a strong transition metal essential for building steel structures and carrying oxygen in human blood hemoglobin!" },
+            29: { symbol: "Cu", name: "Copper", standardNeutrons: 35, facts: "Copper is a reddish metal known for its excellent electrical and thermal conductivity, widely used in electrical wiring!" }
+        };
+
+        /* ================= MOLECULE DATABASE ================= */
+        const MOLECULES_DATABASE = [
+            {
+                formula: "H2O",
+                name: "Water",
+                recipe: { H: 2, O: 1 },
+                facts: "Water covers over 70% of Earth! Known as the 'universal solvent', water has a boiling point of 100°C (212°F) and is essential for all living cells."
+            },
+            {
+                formula: "NaCl",
+                name: "Sodium Chloride (Table Salt)",
+                recipe: { Na: 1, Cl: 1 },
+                facts: "Formed via ionic bonding! Sodium loses an electron to Chlorine, creating stable table salt crystal lattices used for seasoning and preserving food."
+            },
+            {
+                formula: "CO2",
+                name: "Carbon Dioxide",
+                recipe: { C: 1, O: 2 },
+                facts: "A greenhouse gas produced during respiration and combustion. Plants consume CO2 during photosynthesis to output oxygen!"
+            },
+            {
+                formula: "NH3",
+                name: "Ammonia",
+                recipe: { N: 1, H: 3 },
+                facts: "A pungent gas synthesized via the industrial Haber process. Essential in agricultural fertilizers and household cleaning solutions."
+            },
+            {
+                formula: "H2O2",
+                name: "Hydrogen Peroxide",
+                recipe: { H: 2, O: 2 },
+                facts: "A powerful oxidizing agent used as a mild antiseptic disinfectant on skin wounds and in bleaching processes."
+            },
+            {
+                formula: "HCl",
+                name: "Hydrochloric Acid",
+                recipe: { H: 1, Cl: 1 },
+                facts: "A strong corrosive acid! Gastric acid in human stomach digestive juices contains Hydrochloric acid to breakdown food proteins."
+            },
+            {
+                formula: "O2",
+                name: "Oxygen Gas",
+                recipe: { O: 2 },
+                facts: "Diatomic oxygen molecule gas! Breathable oxygen that powers cellular respiration in humans and animals."
+            },
+            {
+                formula: "CH4",
+                name: "Methane",
+                recipe: { C: 1, H: 4 },
+                facts: "The simplest hydrocarbon gas! Major constituent of natural gas fuel used in cooking stoves and heating systems."
+            },
+            {
+                formula: "MgO",
+                name: "Magnesium Oxide",
+                recipe: { Mg: 1, O: 1 },
+                facts: "Formed when magnesium ribbon burns brightly in oxygen! It is a white ionic powder used in heat-resistant furnace linings and antacid medicines."
+            },
+            {
+                formula: "CuO",
+                name: "Copper Oxide",
+                recipe: { Cu: 1, O: 1 },
+                facts: "A black solid oxide of copper! Formed when copper metal is heated in air, widely used in ceramics, glazes, and battery research."
+            },
+            {
+                formula: "FeS",
+                name: "Iron Sulphide",
+                recipe: { Fe: 1, S: 1 },
+                facts: "Formed in a classic lab reaction when heating iron filings with sulfur powder! Produces a dark metallic solid that cannot be separated by magnets."
+            }
+        ];
+
+        /* ================= DISCOVERED BADGES SHOWCASE MODAL ================= */
+        function openDiscoveredModal() {
+            playSound('click');
+            renderBadgesGrid();
+            document.getElementById('discovered-modal').classList.remove('hidden');
+        }
+
+        function closeDiscoveredModal() {
+            playSound('click');
+            document.getElementById('discovered-modal').classList.add('hidden');
+        }
+
+        function renderBadgesGrid() {
+            const atomsGrid = document.getElementById('badge-atoms-grid');
+            const moleculesGrid = document.getElementById('badge-molecules-grid');
+
+            if (!atomsGrid || !moleculesGrid) return;
+
+            let atomsHtml = '';
+            let moleculesHtml = '';
+
+            let unlockedAtomsCount = 0;
+            let unlockedMoleculesCount = 0;
+
+            // Render Periodic Table Elements
+            Object.keys(PERIODIC_TABLE).forEach(z => {
+                const elem = PERIODIC_TABLE[z];
+                const isUnlocked = state.discoveredBadges.has(elem.symbol);
+                if (isUnlocked) unlockedAtomsCount++;
+
+                atomsHtml += `
+                    <div class="p-3 rounded-2xl border ${isUnlocked ? 'bg-cyan-950/60 border-cyan-500/50 text-cyan-200' : 'bg-slate-900/40 border-slate-800 text-slate-600'} text-center transition-all">
+                        <div class="text-xl mb-1">${isUnlocked ? '<i class="fa-solid fa-shield-halved text-cyan-400"></i>' : '<i class="fa-solid fa-lock text-slate-600"></i>'}</div>
+                        <div class="font-fredoka font-bold text-base">${elem.symbol}</div>
+                        <div class="text-[10px] truncate">${isUnlocked ? elem.name : 'Locked Atom'}</div>
+                    </div>
+                `;
+            });
+
+            // Render Molecules
+            MOLECULES_DATABASE.forEach(mol => {
+                const isUnlocked = state.discoveredBadges.has(mol.formula);
+                if (isUnlocked) unlockedMoleculesCount++;
+
+                moleculesHtml += `
+                    <div class="p-3 rounded-2xl border ${isUnlocked ? 'bg-pink-950/60 border-pink-500/50 text-pink-200' : 'bg-slate-900/40 border-slate-800 text-slate-600'} text-center transition-all">
+                        <div class="text-xl mb-1">${isUnlocked ? '<i class="fa-solid fa-flask-vial text-pink-400"></i>' : '<i class="fa-solid fa-lock text-slate-600"></i>'}</div>
+                        <div class="font-fredoka font-bold text-base">${mol.formula}</div>
+                        <div class="text-[10px] truncate">${isUnlocked ? mol.name : 'Locked Compound'}</div>
+                    </div>
+                `;
+            });
+
+            atomsGrid.innerHTML = atomsHtml;
+            moleculesGrid.innerHTML = moleculesHtml;
+
+            const totalUnlocked = unlockedAtomsCount + unlockedMoleculesCount;
+            const totalBadges = Object.keys(PERIODIC_TABLE).length + MOLECULES_DATABASE.length;
+            const summaryElem = document.getElementById('discovered-summary-text');
+            if (summaryElem) {
+                summaryElem.innerText = `${totalUnlocked} / ${totalBadges} Total Badges Earned`;
+            }
+        }
+
+        /* ================= GAME 1: ATOM CRAFT LOGIC ================= */
+        function adjustParticle(type, delta) {
+            playSound('click');
+            if (type === 'proton') {
+                state.atom.protons = Math.max(1, Math.min(18, state.atom.protons + delta));
+            } else if (type === 'neutron') {
+                state.atom.neutrons = Math.max(0, Math.min(25, state.atom.neutrons + delta));
+            } else if (type === 'electron') {
+                state.atom.electrons = Math.max(0, Math.min(28, state.atom.electrons + delta));
+            }
+            updateAtomUI();
+        }
+
+        function resetAtomControls() {
+            playSound('click');
+            state.atom = { protons: 1, neutrons: 0, electrons: 1 };
+            document.getElementById('atom-preset-select').value = "custom";
+            updateAtomUI();
+        }
+
+        function loadAtomPreset() {
+            playSound('click');
+            const preset = document.getElementById('atom-preset-select').value;
+            if (preset === 'H') { state.atom = { protons: 1, neutrons: 0, electrons: 1 }; }
+            else if (preset === 'He') { state.atom = { protons: 2, neutrons: 2, electrons: 2 }; }
+            else if (preset === 'C') { state.atom = { protons: 6, neutrons: 6, electrons: 6 }; }
+            else if (preset === 'N') { state.atom = { protons: 7, neutrons: 7, electrons: 7 }; }
+            else if (preset === 'O') { state.atom = { protons: 8, neutrons: 8, electrons: 8 }; }
+            else if (preset === 'Na') { state.atom = { protons: 11, neutrons: 12, electrons: 11 }; }
+            else if (preset === 'Cl') { state.atom = { protons: 17, neutrons: 18, electrons: 17 }; }
+            updateAtomUI();
+        }
+
+        function updateAtomUI() {
+            const p = state.atom.protons;
+            const n = state.atom.neutrons;
+            const e = state.atom.electrons;
+
+            // Update Control Displays
+            document.getElementById('count-protons').innerText = p;
+            document.getElementById('count-neutrons').innerText = n;
+            document.getElementById('count-electrons').innerText = e;
+
+            // Lookup Element
+            const element = PERIODIC_TABLE[p] || { symbol: "Unk", name: "Unknown Element", standardNeutrons: p };
+            const massNum = p + n;
+            const netCharge = p - e;
+
+            document.getElementById('hud-atomic-number').innerText = p;
+            document.getElementById('hud-mass-number').innerText = massNum;
+            document.getElementById('hud-symbol').innerText = element.symbol;
+            document.getElementById('hud-name').innerText = element.name;
+
+            // Net Charge Formatting
+            const chargeElem = document.getElementById('hud-net-charge');
+            if (netCharge === 0) {
+                chargeElem.innerText = "0 (Neutral)";
+                chargeElem.className = "font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            } else if (netCharge > 0) {
+                chargeElem.innerText = `+${netCharge} (Cation)`;
+                chargeElem.className = "font-mono font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30";
+            } else {
+                chargeElem.innerText = `${netCharge} (Anion)`;
+                chargeElem.className = "font-mono font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30";
+            }
+
+            // Shell Distribution (K: 2, L: 8, M: 18)
+            let remE = e;
+            const k = Math.min(2, remE); remE -= k;
+            const l = Math.min(8, remE); remE -= l;
+            const m = Math.min(18, remE);
+
+            document.getElementById('shell-k-val').innerText = `${k} / 2`;
+            document.getElementById('shell-l-val').innerText = `${l} / 8`;
+            document.getElementById('shell-m-val').innerText = `${m} / 18`;
+
+            let shellStr = `K: ${k}`;
+            if (e > 2) shellStr += `, L: ${l}`;
+            if (e > 10) shellStr += `, M: ${m}`;
+            document.getElementById('shell-dist-display').innerText = shellStr;
+
+            renderBohrModel();
+        }
+
+        // SVG Bohr Model Renderer (Batched DOM updates for smooth performance)
+        function renderBohrModel() {
+            const svg = document.getElementById('bohr-svg');
+            if (!svg) return;
+
+            const p = state.atom.protons;
+            const n = state.atom.neutrons;
+            const e = state.atom.electrons;
+
+            const cx = 200;
+            const cy = 200;
+
+            const htmlParts = [];
+
+            // 1. Render Nucleus Cluster
+            const totalNucleons = p + n;
+            const nucleusRadius = Math.min(42, 14 + totalNucleons * 0.9);
+
+            htmlParts.push(`<g id="nucleus">`);
+            htmlParts.push(`<circle cx="${cx}" cy="${cy}" r="${nucleusRadius}" fill="rgba(30, 41, 59, 0.8)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>`);
+
+            // Draw individual nucleons
+            const particles = [];
+            for (let i = 0; i < p; i++) particles.push({ type: 'proton' });
+            for (let j = 0; j < n; j++) particles.push({ type: 'neutron' });
+
+            particles.forEach((part, idx) => {
+                const angle = (idx * 2.4);
+                const r = (idx === 0) ? 0 : Math.min(nucleusRadius - 6, Math.sqrt(idx) * 6);
+                const px = cx + r * Math.cos(angle);
+                const py = cy + r * Math.sin(angle);
+                const color = part.type === 'proton' ? '#FF4D4D' : '#4A90E2';
+                htmlParts.push(`<circle cx="${px}" cy="${py}" r="5" fill="${color}" stroke="#1e1b4b" stroke-width="1"/>`);
+            });
+            htmlParts.push(`</g>`);
+
+            // 2. Render Shell Orbits & Electrons
+            let remE = e;
+            const shellCapacities = [2, 8, 18];
+            const shellRadii = [75, 120, 165];
+            const shellNames = ['K', 'L', 'M'];
+
+            shellCapacities.forEach((cap, sIdx) => {
+                const count = Math.min(cap, remE);
+                remE -= count;
+
+                if (count > 0 || sIdx === 0) {
+                    const radius = shellRadii[sIdx];
+                    
+                    htmlParts.push(`<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="rgba(99, 102, 241, 0.35)" stroke-width="1.5" stroke-dasharray="4 4"/>`);
+                    htmlParts.push(`<text x="${cx}" y="${cy - radius - 5}" fill="rgba(148, 163, 184, 0.7)" font-size="10" font-weight="bold" text-anchor="middle">${shellNames[sIdx]}-Shell</text>`);
+
+                    const spinClass = sIdx % 2 === 0 ? 'orbit-spin' : 'orbit-spin-reverse';
+                    htmlParts.push(`<g class="${spinClass}">`);
+                    for (let i = 0; i < count; i++) {
+                        const angle = (i * 2 * Math.PI) / count;
+                        const ex = cx + radius * Math.cos(angle);
+                        const ey = cy + radius * Math.sin(angle);
+                        htmlParts.push(`<circle cx="${ex}" cy="${ey}" r="6" fill="#FFD166" stroke="#b45309" stroke-width="1.5" filter="drop-shadow(0 0 4px rgba(255, 209, 102, 0.8))"/>`);
+                    }
+                    htmlParts.push(`</g>`);
+                }
+            });
+
+            svg.innerHTML = htmlParts.join('');
+        }
+
+        // Test Atom Stability Rule Check
+        function testAtomStability() {
+            const p = state.atom.protons;
+            const n = state.atom.neutrons;
+            const e = state.atom.electrons;
+
+            const element = PERIODIC_TABLE[p];
+            if (!element) return;
+
+            const isNeutral = (p === e);
+            const stdN = element.standardNeutrons;
+            
+            // Isotope ratio tolerance
+            const isNeutronStable = Math.abs(n - stdN) <= 1;
+
+            if (isNeutral && isNeutronStable) {
+                // SUCCESS: STABLE NEUTRAL ATOM CREATED!
+                playSound('success');
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+                }
+
+                state.discoveredBadges.add(element.symbol);
+                updateBadgeCounter();
+
+                openModal({
+                    type: 'success',
+                    title: `Stable ${element.name} Atom! (${element.symbol})`,
+                    subtitle: `Atomic Number: ${p} | Mass Number: ${p + n}`,
+                    icon: 'fa-certificate',
+                    iconBg: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400',
+                    content: `
+                        <div class="space-y-3">
+                            <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 font-bold text-xs flex items-center">
+                                <i class="fa-solid fa-circle-check text-base mr-2"></i>
+                                Nuclear Force & Electron Balance Achieved!
+                            </div>
+                            <p class="text-slate-300 text-xs leading-relaxed">
+                                ${element.facts}
+                            </p>
+                            <div class="pt-2 border-t border-slate-800 text-xs text-slate-400 flex justify-between">
+                                <span>Protons: <strong class="text-rose-300">${p}</strong></span>
+                                <span>Neutrons: <strong class="text-blue-300">${n}</strong></span>
+                                <span>Electrons: <strong class="text-amber-300">${e}</strong></span>
+                            </div>
+                        </div>
+                    `
+                });
+            } else {
+                // UNSTABLE / INCORRECT ATOM HINT
+                playSound('fail');
+                let hintMessage = "";
+
+                if (!isNeutral) {
+                    if (e < p) hintMessage += `• <strong>Unbalanced Charge (Cation):</strong> The atom has ${p} protons but only ${e} electrons. Add ${p - e} more electron(s) to make it neutral!<br>`;
+                    else hintMessage += `• <strong>Unbalanced Charge (Anion):</strong> The atom has ${e} electrons for ${p} protons. Remove ${e - p} electron(s) for a neutral state!<br>`;
+                }
+
+                if (!isNeutronStable) {
+                    if (n > stdN) hintMessage += `• <strong>Nuclear Instability (Too heavy):</strong> Too many neutrons for ${element.name}! Try reducing neutrons to around ${stdN}.`;
+                    else hintMessage += `• <strong>Nuclear Instability (Too light):</strong> Not enough neutrons to glue ${p} protons! Try adding neutrons to around ${stdN}.`;
+                }
+
+                openModal({
+                    type: 'error',
+                    title: 'Unstable Atom Configuration!',
+                    subtitle: 'Exhibition Retry Hint',
+                    icon: 'fa-triangle-exclamation',
+                    iconBg: 'bg-amber-500/20 border-amber-500/40 text-amber-400',
+                    content: `
+                        <div class="space-y-3">
+                            <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 font-semibold text-xs">
+                                Nuclear decay or charge imbalance detected! Read the hints below and retry:
+                            </div>
+                            <div class="text-xs text-slate-300 leading-relaxed space-y-1">
+                                ${hintMessage}
+                            </div>
+                        </div>
+                    `
+                });
+            }
+        }
+
+        /* ================= GAME 2: MOLECULE CRAFT LOGIC ================= */
+        function renderActivePalette() {
+            const container = document.getElementById('palette-elements-grid');
+            if (!container) return;
+
+            if (state.activePaletteElements.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-2 text-center p-6 bg-slate-900/50 rounded-2xl border border-slate-800 space-y-2">
+                        <i class="fa-solid fa-box-open text-slate-600 text-2xl"></i>
+                        <p class="text-xs text-slate-400 font-semibold">Palette is currently empty.</p>
+                        <button onclick="openElementManagerModal()" class="px-3 py-1.5 rounded-xl bg-pink-600/30 hover:bg-pink-600/50 text-pink-300 text-xs font-bold border border-pink-500/40 transition-all">
+                            + Select Elements
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const borderColors = {
+                'H': 'hover:border-cyan-400',
+                'O': 'hover:border-rose-400',
+                'C': 'hover:border-emerald-400',
+                'Na': 'hover:border-purple-400',
+                'Cl': 'hover:border-lime-400',
+                'N': 'hover:border-amber-400',
+            };
+
+            const bgColors = {
+                'H': 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300',
+                'O': 'bg-rose-500/20 border-rose-500/40 text-rose-300',
+                'C': 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300',
+                'Na': 'bg-purple-500/20 border-purple-500/40 text-purple-300',
+                'Cl': 'bg-lime-500/20 border-lime-500/40 text-lime-300',
+                'N': 'bg-amber-500/20 border-amber-500/40 text-amber-300',
+            };
+
+            let html = '';
+            state.activePaletteElements.forEach(sym => {
+                const z = Object.keys(PERIODIC_TABLE).find(k => PERIODIC_TABLE[k].symbol === sym);
+                const elem = PERIODIC_TABLE[z] || { name: sym, symbol: sym };
+
+                const hoverBorder = borderColors[sym] || 'hover:border-pink-400';
+                const badgeStyle = bgColors[sym] || 'bg-pink-500/20 border-pink-500/40 text-pink-300';
+
+                html += `
+                    <div draggable="true" ondragstart="handleDragStart(event, '${sym}')" onclick="addReactant('${sym}')" class="element-card bg-slate-900/80 border border-slate-700 ${hoverBorder} p-3 rounded-xl cursor-grab active:cursor-grabbing hover:bg-slate-800 transition-all flex items-center space-x-3 group">
+                        <div class="w-10 h-10 rounded-lg ${badgeStyle} border font-fredoka font-bold text-lg flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
+                            ${sym}
+                        </div>
+                        <div class="overflow-hidden">
+                            <div class="font-bold text-xs text-white truncate">${elem.name}</div>
+                            <div class="text-[10px] text-slate-400">Atomic #${z || '?'}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        /* ================= ELEMENT MANAGER MODAL LOGIC ================= */
+        function openElementManagerModal() {
+            playSound('click');
+            renderPeriodicSelectionGrid();
+            document.getElementById('element-manager-modal').classList.remove('hidden');
+        }
+
+        function closeElementManagerModal() {
+            playSound('click');
+            document.getElementById('element-manager-modal').classList.add('hidden');
+        }
+
+        function renderPeriodicSelectionGrid() {
+            const grid = document.getElementById('periodic-selection-grid');
+            const countDisplay = document.getElementById('element-selection-count');
+            if (!grid) return;
+
+            countDisplay.innerText = `${state.activePaletteElements.length} / 10 Selected`;
+
+            let html = '';
+            Object.keys(PERIODIC_TABLE).forEach(z => {
+                const elem = PERIODIC_TABLE[z];
+                const isSelected = state.activePaletteElements.includes(elem.symbol);
+
+                html += `
+                    <label class="flex items-center p-2.5 rounded-xl border ${isSelected ? 'bg-pink-950/50 border-pink-500/60 text-white' : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'} cursor-pointer transition-all space-x-2.5">
+                        <input type="checkbox" onchange="togglePaletteElement('${elem.symbol}')" ${isSelected ? 'checked' : ''} class="w-4 h-4 accent-pink-500 rounded cursor-pointer flex-shrink-0">
+                        <div class="flex items-center space-x-2 overflow-hidden">
+                            <span class="font-fredoka font-bold text-pink-300 text-sm w-6 text-center flex-shrink-0">${elem.symbol}</span>
+                            <div class="overflow-hidden">
+                                <div class="font-bold text-[11px] text-slate-200 truncate">${elem.name}</div>
+                                <div class="text-[9px] text-slate-400">#${z}</div>
+                            </div>
+                        </div>
+                    </label>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        function togglePaletteElement(symbol) {
+            playSound('click');
+            const idx = state.activePaletteElements.indexOf(symbol);
+            
+            if (idx > -1) {
+                state.activePaletteElements.splice(idx, 1);
+            } else {
+                if (state.activePaletteElements.length >= 10) {
+                    openModal({
+                        type: 'error',
+                        title: 'Palette Limit Reached!',
+                        subtitle: 'Maximum 10 Elements',
+                        icon: 'fa-triangle-exclamation',
+                        iconBg: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
+                        content: `<p class="text-xs text-slate-300">You can select a maximum of 10 elements at a time for the palette. Uncheck an existing element to select this one.</p>`
+                    });
+                    renderPeriodicSelectionGrid();
+                    return;
+                }
+                state.activePaletteElements.push(symbol);
+            }
+
+            renderPeriodicSelectionGrid();
+            renderActivePalette();
+        }
+
+        function clearPaletteSelection() {
+            playSound('click');
+            state.activePaletteElements = [];
+            renderPeriodicSelectionGrid();
+            renderActivePalette();
+        }
+
+        function addReactant(elemSymbol) {
+            playSound('click');
+            if (state.flaskContents.length >= 8) {
+                openModal({
+                    type: 'error',
+                    title: 'Flask Full!',
+                    subtitle: 'Capacity Reached',
+                    icon: 'fa-flask',
+                    iconBg: 'bg-rose-500/20 text-rose-400 border-rose-500/40',
+                    content: `<p class="text-xs text-slate-300">The reaction flask can hold up to 8 atoms at a time. Click 'Clear Flask' to start fresh.</p>`
+                });
+                return;
+            }
+            state.flaskContents.push(elemSymbol);
+            updateFlaskUI();
+        }
+
+        function clearFlask() {
+            playSound('click');
+            state.flaskContents = [];
+            updateFlaskUI();
+        }
+
+        function updateFlaskUI() {
+            const list = document.getElementById('flask-contents-list');
+            const badge = document.getElementById('flask-count-badge');
+            
+            badge.innerText = `${state.flaskContents.length} Atom(s) Added`;
+
+            if (state.flaskContents.length === 0) {
+                list.innerHTML = `<span class="text-xs text-slate-500 italic">Flask is empty. Click or drag elements from the left palette...</span>`;
+            } else {
+                let html = '';
+                state.flaskContents.forEach((sym, idx) => {
+                    let badgeColor = "bg-slate-800 text-white border-slate-700";
+                    if (sym === 'H') badgeColor = "bg-cyan-500/20 text-cyan-300 border-cyan-500/40";
+                    if (sym === 'O') badgeColor = "bg-rose-500/20 text-rose-300 border-rose-500/40";
+                    if (sym === 'C') badgeColor = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+                    if (sym === 'Na') badgeColor = "bg-purple-500/20 text-purple-300 border-purple-500/40";
+                    if (sym === 'Cl') badgeColor = "bg-lime-500/20 text-lime-300 border-lime-500/40";
+                    if (sym === 'N') badgeColor = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+
+                    html += `
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-xl border ${badgeColor} text-xs font-fredoka font-bold animate-float">
+                            ${sym}
+                            <button onclick="removeReactantAtIndex(${idx})" class="ml-2 text-slate-400 hover:text-red-400 text-xs">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </span>
+                    `;
+                });
+                list.innerHTML = html;
+            }
+
+            const fillLevel = Math.min(220, 160 - state.flaskContents.length * 8);
+            document.getElementById('flask-liquid').setAttribute('d', `M 35,${fillLevel} C 50,${fillLevel - 5} 150,${fillLevel - 5} 165,${fillLevel} C 172,185 150,220 100,220 C 50,220 28,185 35,${fillLevel} Z`);
+
+            updateMoleculeHUD();
+        }
+
+        function removeReactantAtIndex(idx) {
+            playSound('click');
+            state.flaskContents.splice(idx, 1);
+            updateFlaskUI();
+        }
+
+        // Molecule HUD Realtime Updater
+        function updateMoleculeHUD() {
+            const counts = {};
+            state.flaskContents.forEach(sym => counts[sym] = (counts[sym] || 0) + 1);
+
+            document.getElementById('hud-total-atoms').innerText = state.flaskContents.length;
+
+            let matched = null;
+            for (const mol of MOLECULES_DATABASE) {
+                const recipeKeys = Object.keys(mol.recipe);
+                const currentKeys = Object.keys(counts);
+                if (recipeKeys.length === currentKeys.length && recipeKeys.every(k => counts[k] === mol.recipe[k])) {
+                    matched = mol;
+                    break;
+                }
+            }
+
+            const formulaElem = document.getElementById('hud-formula');
+            const nameElem = document.getElementById('hud-molecule-name');
+            const statusElem = document.getElementById('hud-status-text');
+            const matchStatus = document.getElementById('hud-match-status');
+
+            if (matched) {
+                formulaElem.innerText = matched.formula;
+                nameElem.innerText = matched.name;
+                statusElem.innerText = "Ready!";
+                statusElem.className = "text-emerald-400 font-bold";
+                matchStatus.innerText = "Valid Compound";
+                matchStatus.className = "font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            } else if (state.flaskContents.length > 0) {
+                let rawFormula = "";
+                Object.keys(counts).forEach(k => {
+                    rawFormula += k + (counts[k] > 1 ? counts[k] : "");
+                });
+                formulaElem.innerText = rawFormula;
+                nameElem.innerText = "Unknown Mixture";
+                statusElem.innerText = "Mixing";
+                statusElem.className = "text-amber-300 font-bold";
+                matchStatus.innerText = "Unmatched";
+                matchStatus.className = "font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
+            } else {
+                formulaElem.innerText = "---";
+                nameElem.innerText = "Dynamic Mixture";
+                statusElem.innerText = "Empty";
+                statusElem.className = "text-slate-400";
+                matchStatus.innerText = "None";
+                matchStatus.className = "font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
+            }
+
+            const listElem = document.getElementById('hud-stoichiometry-list');
+            if (Object.keys(counts).length === 0) {
+                listElem.innerHTML = `<div class="text-slate-500 italic text-center p-2 bg-slate-900/50 rounded-lg">No reactants in flask</div>`;
+            } else {
+                let listHtml = '';
+                Object.keys(counts).forEach(sym => {
+                    listHtml += `
+                        <div class="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800">
+                            <span class="text-slate-300 font-semibold">${sym} Atom(s):</span>
+                            <span class="font-mono font-bold text-pink-300">${counts[sym]}</span>
+                        </div>
+                    `;
+                });
+                listElem.innerHTML = listHtml;
+            }
+        }
+
+        /* Drag and Drop Handlers */
+        function handleDragStart(e, symbol) {
+            e.dataTransfer.setData('text/plain', symbol);
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('flask-drop-zone').classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            document.getElementById('flask-drop-zone').classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('flask-drop-zone').classList.remove('drag-over');
+            const symbol = e.dataTransfer.getData('text/plain');
+            if (symbol) addReactant(symbol);
+        }
+
+        // Trigger Synthesis Reaction Action
+        function triggerReaction() {
+            if (state.flaskContents.length === 0) {
+                openModal({
+                    type: 'error',
+                    title: 'Empty Reaction Flask!',
+                    subtitle: 'Add Reactants First',
+                    icon: 'fa-vial',
+                    iconBg: 'bg-amber-500/20 text-amber-400 border-amber-500/40',
+                    content: `<p class="text-xs text-slate-300">Add atoms to the distillation chamber before triggering a chemical reaction.</p>`
+                });
+                return;
+            }
+
+            const currentCounts = {};
+            state.flaskContents.forEach(sym => {
+                currentCounts[sym] = (currentCounts[sym] || 0) + 1;
+            });
+
+            let matchedMolecule = null;
+            for (const mol of MOLECULES_DATABASE) {
+                const recipeKeys = Object.keys(mol.recipe);
+                const currentKeys = Object.keys(currentCounts);
+
+                if (recipeKeys.length === currentKeys.length && recipeKeys.every(k => currentCounts[k] === mol.recipe[k])) {
+                    matchedMolecule = mol;
+                    break;
+                }
+            }
+
+            if (matchedMolecule) {
+                playSound('success');
+                triggerVaporAnimation(true);
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+                }
+
+                state.discoveredBadges.add(matchedMolecule.formula);
+                updateBadgeCounter();
+
+                openModal({
+                    type: 'success',
+                    title: `Reaction Successful! (${matchedMolecule.formula})`,
+                    subtitle: `Synthesized Molecule: ${matchedMolecule.name}`,
+                    icon: 'fa-flask-vial',
+                    iconBg: 'bg-pink-500/20 border-pink-500/40 text-pink-400',
+                    content: `
+                        <div class="space-y-3">
+                            <div class="p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl text-pink-300 font-bold text-xs flex items-center">
+                                <i class="fa-solid fa-wand-magic-sparkles text-base mr-2"></i>
+                                Precise Stoichiometric Ratio Achieved!
+                            </div>
+                            <p class="text-slate-300 text-xs leading-relaxed">
+                                ${matchedMolecule.facts}
+                            </p>
+                            <div class="pt-2 border-t border-slate-800 text-xs text-slate-400">
+                                <strong>Chemical Formula:</strong> <span class="text-pink-300 font-bold font-mono">${matchedMolecule.formula}</span>
+                            </div>
+                        </div>
+                    `
+                });
+                state.flaskContents = [];
+                updateFlaskUI();
+            } else {
+                playSound('fail');
+                triggerVaporAnimation(false);
+
+                let smartHint = "No reaction occurred! Check target recipes:<br>";
+                smartHint += "• <strong>Magnesium Oxide (MgO):</strong> Requires 1 Magnesium (Mg) and 1 Oxygen (O).<br>";
+                smartHint += "• <strong>Copper Oxide (CuO):</strong> Requires 1 Copper (Cu) and 1 Oxygen (O).<br>";
+                smartHint += "• <strong>Iron Sulphide (FeS):</strong> Requires 1 Iron (Fe) and 1 Sulfur (S).<br>";
+                smartHint += "• <strong>Water (H₂O):</strong> Requires 2 Hydrogen (H) and 1 Oxygen (O).";
+
+                openModal({
+                    type: 'error',
+                    title: 'No Reaction Occurred!',
+                    subtitle: 'Reaction Distillation Hint',
+                    icon: 'fa-smog',
+                    iconBg: 'bg-rose-500/20 border-rose-500/40 text-rose-400',
+                    content: `
+                        <div class="space-y-3">
+                            <div class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 font-semibold text-xs">
+                                Smoke & fizzing observed, but atoms did not bind into a valid target molecule!
+                            </div>
+                            <div class="text-xs text-slate-300 leading-relaxed space-y-1">
+                                ${smartHint}
+                            </div>
+                        </div>
+                    `
+                });
+            }
+        }
+
+        // Optimized Vapor Bubbles Animation
+        function triggerVaporAnimation(isSuccess) {
+            const container = document.getElementById('steam-container');
+            if (!container) return;
+
+            const bubbleCount = 4;
+            const fragment = document.createDocumentFragment();
+
+            for (let i = 0; i < bubbleCount; i++) {
+                const bubble = document.createElement('div');
+                bubble.className = `w-4 h-4 rounded-full ${isSuccess ? 'bg-pink-400/60' : 'bg-slate-400/40'} animate-bubble absolute`;
+                bubble.style.left = `${Math.random() * 80}%`;
+                bubble.style.animationDelay = `${i * 0.15}s`;
+                fragment.appendChild(bubble);
+            }
+
+            container.innerHTML = '';
+            container.appendChild(fragment);
+
+            setTimeout(() => { container.innerHTML = ''; }, 1800);
+        }
+
+        /* ================= UNIFIED MODAL SYSTEM ================= */
+        function openModal({ type, title, subtitle, icon, iconBg, content }) {
+            const modal = document.getElementById('result-modal');
+            const iconElem = document.getElementById('modal-icon');
+            const iconContainer = document.getElementById('modal-icon-container');
+            
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-subtitle').innerText = subtitle;
+            document.getElementById('modal-body-card').innerHTML = content;
+
+            iconElem.className = `fa-solid ${icon}`;
+            iconContainer.className = `w-20 h-20 mx-auto rounded-3xl flex items-center justify-center text-4xl shadow-lg ${iconBg}`;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            playSound('click');
+            document.getElementById('result-modal').classList.add('hidden');
+        }
+
+        /* ================= EXHIBITION BADGE COUNTER ================= */
+        function updateBadgeCounter() {
+            const count = state.discoveredBadges.size;
+            document.getElementById('badge-counter').innerText = `${count} Discovered`;
+        }
+
+        /* Initial Setup On Load */
+        window.onload = function() {
+            updateAtomUI();
+            renderActivePalette();
+            updateFlaskUI();
+        };
+    </script>
+</body>
+</html>
